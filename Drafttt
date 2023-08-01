@@ -1,0 +1,39 @@
+import xgboost as xgb
+import pandas as pd
+
+# Assuming you have trained your XGBoost model and loaded your dataset 'data'
+# Train your XGBoost model
+xgb_model = xgb.XGBClassifier()
+xgb_model.fit(data, target)
+
+# Get the decision paths for each class
+decision_paths = []
+for i in range(len(xgb_model.classes_)):
+    class_name = xgb_model.classes_[i]
+    class_decision_path = []
+    for tree in xgb_model.get_booster().get_dump():
+        tree_path = []
+        node_stack = [tree]
+        while node_stack:
+            node = node_stack.pop()
+            if 'children' in node:
+                split_feature = node['split']
+                split_value = node['split_condition']
+                tree_path.append(f"{split_feature} <= {split_value}")
+                node_stack.append(node['children'][1])  # Right child
+                node_stack.append(node['children'][0])  # Left child
+            else:
+                leaf_value = node['leaf']
+                class_idx = int(node['nodeid'])
+                if class_idx == i:
+                    tree_path.append(f"Class {i}: {leaf_value}")
+                    break
+        class_decision_path.append(tree_path)
+    decision_paths.append((class_name, class_decision_path))
+
+# Print the decision paths for each class
+for class_name, class_decision_path in decision_paths:
+    print(f"{class_name}")
+    for tree_path in class_decision_path:
+        print(" -> ".join(tree_path))
+    print()
