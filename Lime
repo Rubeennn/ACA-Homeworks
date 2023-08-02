@@ -1,68 +1,41 @@
 import xgboost as xgb
+import pandas as pd
+import lime
+import lime.lime_tabular
 
 # Assuming you have trained your XGBoost model and loaded your dataset 'data' and 'target'
 # Train your XGBoost model
 xgb_model = xgb.XGBClassifier()
 xgb_model.fit(data, target)
 
-# Extract the decision paths for each class
-decision_paths = []
-for class_idx, class_name in enumerate(xgb_model.classes_):
-    class_decision_path = []
-    for tree_str in xgb_model.get_booster().get_dump():
-        tree_dict = {}
-        stack = [(tree_dict, tree_str, 0)]
+# Create the LIME explainer
+explainer = lime.lime_tabular.LimeTabularExplainer(data, feature_names=[f'feature_{i}' for i in range(data.shape[1])],
+                                                  class_names=[f'class_{i}' for i in range(len(xgb_model.classes_))],
+                                                  mode='classification')
 
-        while stack:
-            cur_node, cur_str, start_idx = stack.pop()
+# Create a list to store explanations for each class
+explanations = []
+for class_idx in range(len(xgb_model.classes_)):
+    class_explanations = []
+    for _ in range(100):  # Sample 100 data points for each class
+        # Sample a data point from the dataset (you can use other sampling methods)
+        sample_idx = np.random.randint(data.shape[0])
+        sample_data = data[sample_idx]
 
-            if cur_str[start_idx] != '(':
-                # If it's not an internal node, extract the leaf value
-                end_idx = cur_str.find(',', start_idx)
-                if end_idx == -1:
-                    end_idx = cur_str.find(')', start_idx)
-                leaf_value = cur_str[start_idx:end_idx]
-                leaf_value = leaf_value.replace('leaf=', '').strip()
-                if leaf_value == 'nan':
-                    leaf_value = 0  # Handling missing leaf value
-                cur_node['leaf'] = float(leaf_value)
-                continue
+        # Explain the prediction for the sampled data point using LIME
+        exp = explainer.explain_instance(sample_data, xgb_model.predict_proba, labels=[class_idx], num_features=5)
+        class_explanations.append(exp.as_list(label=class_idx))
 
-            # Extract the split feature and split value
-            split_idx = cur_str.find('<', start_idx)
-            if split_idx == -1:
-                split_idx = cur_str.find('>', start_idx)
-            split_str = cur_str[start_idx:split_idx].strip()
-            cur_node[split_str] = {}
-
-            # Extract left child and right child strings
-            left_child_idx = cur_str.find('yes=', split_idx) + 4
-            right_child_idx = cur_str.find('no=', left_child_idx) + 3
-            left_child_str = cur_str[left_child_idx:]
-            right_child_str = cur_str[right_child_idx:]
-
-            stack.append((cur_node[split_str], left_child_str, 0))
-            stack.append((cur_node[split_str], right_child_str, 0))
-
-        class_decision_path.append(tree_dict)
-
-    decision_paths.append((class_name, class_decision_path))
+    # Store the explanations for the current class
+    explanations.append(class_explanations)
 
 # Print the decision paths for each class
-for class_name, class_decision_path in decision_paths:
+for class_idx, class_name in enumerate(xgb_model.classes_):
     print(f"{class_name}")
-    for tree in class_decision_path:
-        tree_path = []
-
-        def traverse_tree(node):
-            for key, value in node.items():
-                if isinstance(value, dict):
-                    split, threshold = key.split()
-                    tree_path.append(f"{split} {threshold}")
-                    traverse_tree(value)
-                else:
-                    tree_path.append(f"Class {class_idx}: {value}")
-
-        traverse_tree(tree)
-        print(" -> ".join(tree_path))
+    for exp in explanations[class_idx]:
+        for feature, value in exp:
+            if value > 0:
+                print(f"{feature} > {value}")
+            else:
+                print(f"{feature} <= {-value}")
     print()
