@@ -10,16 +10,17 @@ decision_paths = []
 for class_idx, class_name in enumerate(xgb_model.classes_):
     class_decision_path = []
     for tree in xgb_model.get_booster().get_dump():
+        tree_dict = eval(tree)  # Convert the tree string to a dictionary
         tree_path = []
-        node_stack = [tree]
+        node_stack = [tree_dict]
         while node_stack:
             node = node_stack.pop()
             if 'children' in node:
                 split_feature = node['split']
                 split_value = node['split_condition']
                 tree_path.append(f"{split_feature} > {split_value}" if node['yes'] == class_idx else f"{split_feature} <= {split_value}")
-                node_stack.append(xgb_model.get_booster().get_dump()[int(node['yes'])])  # Right child
-                node_stack.append(xgb_model.get_booster().get_dump()[int(node['no'])])  # Left child
+                node_stack.append(tree_dict[int(node['yes'])])  # Right child
+                node_stack.append(tree_dict[int(node['no'])])  # Left child
             else:
                 leaf_value = node['leaf']
                 if leaf_value == 'nan':
