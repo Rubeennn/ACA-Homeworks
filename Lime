@@ -36,3 +36,5 @@ for class_name, class_decision_path in decision_paths:
     for tree_path in class_decision_path:
         print(" -> ".join(tree_path))
     print()
+# JSONDecodeError: Extra data: line 1 column 2 (char 1)
+
