@@ -1,41 +1,32 @@
 import xgboost as xgb
-import pandas as pd
-import lime
-import lime.lime_tabular
+import shap
+import numpy as np
 
 # Assuming you have trained your XGBoost model and loaded your dataset 'data' and 'target'
 # Train your XGBoost model
 xgb_model = xgb.XGBClassifier()
 xgb_model.fit(data, target)
 
-# Create the LIME explainer
-explainer = lime.lime_tabular.LimeTabularExplainer(data, feature_names=[f'feature_{i}' for i in range(data.shape[1])],
-                                                  class_names=[f'class_{i}' for i in range(len(xgb_model.classes_))],
-                                                  mode='classification')
+# Initialize the SHAP explainer with the trained XGBoost model
+explainer = shap.Explainer(xgb_model)
 
-# Create a list to store explanations for each class
-explanations = []
-for class_idx in range(len(xgb_model.classes_)):
-    class_explanations = []
-    for _ in range(100):  # Sample 100 data points for each class
-        # Sample a data point from the dataset (you can use other sampling methods)
-        sample_idx = np.random.randint(data.shape[0])
-        sample_data = data[sample_idx]
+# Calculate SHAP values for the entire dataset
+shap_values = explainer.shap_values(data)
 
-        # Explain the prediction for the sampled data point using LIME
-        exp = explainer.explain_instance(sample_data, xgb_model.predict_proba, labels=[class_idx], num_features=5)
-        class_explanations.append(exp.as_list(label=class_idx))
+# Calculate the absolute mean SHAP values for each feature
+mean_abs_shap_values = np.mean(np.abs(shap_values), axis=0)
 
-    # Store the explanations for the current class
-    explanations.append(class_explanations)
+# Sort the features based on their absolute mean SHAP values in descending order
+sorted_features_idx = np.argsort(mean_abs_shap_values)[::-1]
+sorted_features_names = [f'Feature_{i}' for i in sorted_features_idx]
 
-# Print the decision paths for each class
-for class_idx, class_name in enumerate(xgb_model.classes_):
-    print(f"{class_name}")
-    for exp in explanations[class_idx]:
-        for feature, value in exp:
-            if value > 0:
-                print(f"{feature} > {value}")
-            else:
-                print(f"{feature} <= {-value}")
-    print()
+# Extract the thresholds for each feature from the XGBoost model
+thresholds = xgb_model.get_booster().trees_to_dataframe()[['Feature', 'Split']].groupby('Feature').mean()
+
+# Textual explanation with features and thresholds sorted by importance
+explanation_text = "Features and Thresholds:\n"
+for feature_name in sorted_features_names:
+    threshold_value = thresholds.loc[feature_name, 'Split']
+    explanation_text += f"{feature_name} > {threshold_value:.2f}\n"
+
+print(explanation_text)
