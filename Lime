@@ -8,7 +8,7 @@ xgb_model = xgb.XGBClassifier()
 xgb_model.fit(data, target)
 
 # Initialize the SHAP explainer with the trained XGBoost model
-explainer = shap.Explainer(xgb_model)
+explainer = shap.Explainer(xgb_model, feature_names=data.columns)
 
 # Calculate SHAP values for the entire dataset
 shap_values = explainer.shap_values(data)
@@ -18,7 +18,7 @@ mean_abs_shap_values = np.mean(np.abs(shap_values), axis=0)
 
 # Sort the features based on their absolute mean SHAP values in descending order
 sorted_features_idx = np.argsort(mean_abs_shap_values)[::-1]
-sorted_features_names = [f'Feature_{i}' for i in sorted_features_idx]
+sorted_features_names = [data.columns[i] for i in sorted_features_idx]
 
 # Extract the thresholds for each feature from the XGBoost model
 thresholds = xgb_model.get_booster().trees_to_dataframe()[['Feature', 'Split']].groupby('Feature').mean()
