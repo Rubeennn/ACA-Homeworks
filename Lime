@@ -3,10 +3,10 @@ import shap
 import numpy as np
 
 # Initialize the SHAP explainer with the trained XGBoost model
-explainer = shap.Explainer(model, feature_names=xx.columns)
+explainer = shap.Explainer(model, feature_names=xx.columns, )
 
 # Calculate SHAP values for the entire dataset
-shap_values = explainer.shap_values(xx)
+shap_values = explainer.shap_values(xx,)
 
 # Calculate the absolute mean SHAP values for each feature
 mean_abs_shap_values = np.mean(np.abs(shap_values), axis=0)
