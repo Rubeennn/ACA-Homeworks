@@ -1,15 +1,24 @@
-import matplotlib.pyplot as plt
+import xgboost as xgb
 
-# Create the summary plot without the plot display
-summary_plot = shap.summary_plot(shap_values, X, plot_type="bar", feature_names=X.columns, show=False)
+# Load or prepare your dataset
+# ...
 
-# Get the thresholds for each feature from the XGBoost model
-thresholds = model.get_booster().trees_to_dataframe()[['Feature', 'Split']].groupby('Feature').mean()
+# Train an XGBoost classifier on your dataset
+model = xgb.XGBClassifier()
+model.fit(X_train, y_train)
 
-# Plot the thresholds as vertical lines on the summary plot
-for i, feature in enumerate(X.columns):
-    threshold_value = thresholds.loc[feature, 'Split']
-    plt.axvline(x=threshold_value, linestyle="--", color='red', alpha=0.7)
+# Get the trees as a DataFrame
+trees_df = model.get_booster().trees_to_dataframe()
 
-# Display the modified summary plot with thresholds
-plt.show()
+# Sort the DataFrame by "Gain" in descending order
+trees_df = trees_df.sort_values(by="Gain", ascending=False)
+
+# Text representation of the classification path and most impactful features
+explanation_text = "Classification Path and Most Impactful Features:\n"
+for _, row in trees_df.iterrows():
+    feature_name = X_train.columns[row["Feature"]]
+    threshold_value = row["Split"]
+    direction = "True" if row["Yes"] == -1 else "False"
+    explanation_text += f"Feature: {feature_name}, Threshold: {threshold_value:.2f}, Direction: {direction}\n"
+
+print(explanation_text)
