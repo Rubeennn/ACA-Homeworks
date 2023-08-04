@@ -3,10 +3,10 @@ import shap
 import numpy as np
 
 # Initialize the SHAP explainer with the trained XGBoost model
-explainer = shap.Explainer(model, feature_names=xx.columns, )
+explainer = shap.Explainer(model, feature_names=xx.columns)
 
 # Calculate SHAP values for the entire dataset
-shap_values = explainer.shap_values(xx,)
+shap_values = explainer.shap_values(xx)
 
 # Calculate the absolute mean SHAP values for each feature
 mean_abs_shap_values = np.mean(np.abs(shap_values), axis=0)
@@ -15,15 +15,20 @@ mean_abs_shap_values = np.mean(np.abs(shap_values), axis=0)
 sorted_features_idx = np.argsort(mean_abs_shap_values)[::-1]
 sorted_features_names = [xx.columns[i] for i in sorted_features_idx]
 
-# Extract the thresholds for each feature from the XGBoost model
-thresholds = model.get_booster().trees_to_dataframe()[['Feature', 'Split']].groupby('Feature').mean()
+# Get the decision trees as a DataFrame
+trees_df = model.get_booster().trees_to_dataframe()
 
 # Textual explanation with features and thresholds sorted by importance
 explanation_text = "Features and Thresholds:\n"
 for feature_name in sorted_features_names:
-    if feature_name not in thresholds.index:
-        continue
-    threshold_value = thresholds.loc[feature_name, 'Split']
-    explanation_text += f"{feature_name} > {threshold_value:.2f}\n"
+    feature_tree_df = trees_df[trees_df['Feature'] == feature_name]
+    for _, row in feature_tree_df.iterrows():
+        node_id = row['Node']
+        threshold_value = row['Split']
+        if node_id == 0:
+            continue  # Skip the root node
+        if threshold_value == threshold_value:  # Check for NaN values
+            operator = ">" if row['Yes'] == node_id else "<"
+            explanation_text += f"{feature_name} {operator} {threshold_value:.2f}\n"
 
 print(explanation_text)
