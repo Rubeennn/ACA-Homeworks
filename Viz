@@ -1,0 +1,15 @@
+import matplotlib.pyplot as plt
+
+# Create the summary plot without the plot display
+summary_plot = shap.summary_plot(shap_values, X, plot_type="bar", feature_names=X.columns, show=False)
+
+# Get the thresholds for each feature from the XGBoost model
+thresholds = model.get_booster().trees_to_dataframe()[['Feature', 'Split']].groupby('Feature').mean()
+
+# Plot the thresholds as vertical lines on the summary plot
+for i, feature in enumerate(X.columns):
+    threshold_value = thresholds.loc[feature, 'Split']
+    plt.axvline(x=threshold_value, linestyle="--", color='red', alpha=0.7)
+
+# Display the modified summary plot with thresholds
+plt.show()
