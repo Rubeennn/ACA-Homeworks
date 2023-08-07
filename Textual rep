@@ -1,0 +1,42 @@
+import xgboost as xgb
+
+# Load or prepare your dataset
+# ...
+
+# Train an XGBoost classifier on your dataset
+model = xgb.XGBClassifier()
+model.fit(X_train, y_train)
+
+# Get the trees as a DataFrame
+trees_df = model.get_booster().trees_to_dataframe()
+
+# Get the unique class labels
+unique_classes = y_train.unique()
+
+# Initialize text representation
+text_representation = ""
+
+# Iterate through each class
+for class_label in unique_classes:
+    text_representation += f"Class {class_label}:\n"
+    
+    # Iterate through each tree
+    for tree_idx in trees_df['Tree'].unique():
+        tree_data = trees_df[(trees_df['Tree'] == tree_idx) & (trees_df['Leaf'] == 0)]
+        class_node_idx = tree_data[(tree_data['Leaf'] == 0) & (tree_data['Yes'] == -1)]['Node'].values
+        
+        class_tree_data = tree_data[tree_data['Node'].isin(class_node_idx)]
+        
+        # Build text representation for the current class and tree
+        text_representation += f"  Tree {tree_idx}:\n"
+
+        for _, row in class_tree_data.iterrows():
+            feature_name = X_train.columns[row["Feature"]]
+            threshold_value = row["Split"]
+            direction = "True" if row["Yes"] == -1 else "False"
+            text_representation += f"    Feature: {feature_name}, Threshold: {threshold_value:.2f}, Direction: {direction}\n"
+
+    text_representation += "\n"
+
+# Print the overall textual representation
+print(text_representation)
