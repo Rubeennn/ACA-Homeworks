@@ -1,0 +1,19 @@
+#You can find the decision rules as a dataframe through the function model._Booster.trees_to_dataframe().
+#The Yes column contains the ID of the yes-branch, and the No column of the no-branch.
+#This way you can reconstruct the tree, since for each row of the dataframe, the node ID has directed edges to Yes and No.
+#You can do that with networkx like so:
+
+import networkx as nx
+
+df = model._Booster.trees_to_dataframe()
+
+# Create graph
+G = nx.Graph()
+# Add all the nodes
+G.add_nodes_from(df.ID.tolist())
+# Add the edges. This should be simpler in Pandas, but there seems to be a bug with df.apply(tuple, axis=1) at the moment.
+yes_pairs = df[['ID', 'Yes']].dropna()
+no_pairs = df[['ID', 'No']].dropna()
+yes_edges = [tuple([i[0], i[1]]) for i in yes_pairs.values]
+no_edges = [tuple([i[0], i[1]]) for i in no_pairs.values]
+G.add_edges_from(yes_edges + no_edges)
